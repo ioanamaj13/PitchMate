@@ -53,6 +53,34 @@ export class Complex {
   }
 }
 
+export function icfft(amplitudes: number[] | Complex[]): number[] | Complex[] {
+  var N = amplitudes.length;
+  var iN = 1 / N;
+
+  //conjugate if imaginary part is not 0
+  for (var i = 0; i < N; ++i)
+    if (amplitudes[i] instanceof Complex) {
+      // @ts-ignore
+      amplitudes[i].im = -amplitudes[i].im;
+    }
+
+  //apply fourier transform
+  // @ts-ignore
+  amplitudes = cfft(amplitudes);
+
+  for (var i = 0; i < N; ++i) {
+    //conjugate again
+    // @ts-ignore
+    amplitudes[i].im = -amplitudes[i].im;
+    //scale
+    // @ts-ignore
+    amplitudes[i].re *= iN;
+    // @ts-ignore
+    amplitudes[i].im *= iN;
+  }
+  return amplitudes;
+}
+
 export function cfft(amplitudes: number[]): Complex[] {
   const N = amplitudes.length;
   // @ts-ignore
@@ -82,6 +110,9 @@ export function cfft(amplitudes: number[]): Complex[] {
     //@ts-ignore
     amplitudes[k + hN] = even[k].sub(t, even[k]);
   }
+
   //@ts-ignore
   return amplitudes;
 }
+
+

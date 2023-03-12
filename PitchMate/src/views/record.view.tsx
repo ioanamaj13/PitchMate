@@ -6,27 +6,13 @@ import {
   Circle,
   Group,
   Line,
+  Path,
   Rect,
+  Skia,
   vec,
 } from "@shopify/react-native-skia";
-import {
-  cancelAnimation,
-  Extrapolate,
-  interpolate,
-  runOnUI,
-  useSharedValue,
-  withTiming,
-} from "react-native-reanimated";
-import AudioSpectrum from "../components/audioSpectrum.component";
-import { useMeasure } from "../utils/useMeasure";
-import { cfft } from "../math/fft";
-import {
-  NUM_BINS,
-  FFT_SIZE,
-  calculateBins,
-  FIRST_BIN_FREQ,
-  MAX_BIN_FREQ,
-} from "../constants";
+import { cfft, icfft } from "../math/fft";
+import { NUM_BINS, FFT_SIZE, calculateBins } from "../constants";
 
 export const RecordSound = () => {
   // Refs for the audio
@@ -115,26 +101,9 @@ export const RecordSound = () => {
 
     // runOnUI(updateBinHeights)(binValues);
     const a = 2;
-  };
 
-  const updateBinHeights = (values: number[]) => {
-    "worklet";
-    for (let i = 0; i < NUM_BINS; i++) {
-      bins[i].value = interpolate(
-        values[i],
-        [0, 90, 200, 900],
-        [1, 60, 90, 100],
-        Extrapolate.CLAMP
-      );
-    }
-  };
-
-  const fadeBinsDown = () => {
-    "worklet";
-    for (let i = 0; i < NUM_BINS; i++) {
-      cancelAnimation(bins[i]);
-      bins[i].value = withTiming(1, { duration: 500 });
-    }
+    console.log("test cfft", cfft([1, 1, 1, 1, 0, 0, 0, 0]));
+    console.log("test icfft", icfft(cfft([1, 1, 1, 1, 0, 0, 0, 0])));
   };
 
   // Function to get the audio permission
@@ -259,11 +228,39 @@ export const RecordSound = () => {
     [colorCoeficient]
   );
 
-  const [dim, onLayout] = useMeasure();
+  const binsToCurve = (bins: number[]) => {
+    const path = Skia.Path.Make();
+    path.moveTo(0, 0);
 
-  const bins = [...new Array(NUM_BINS)].map(() => useSharedValue(1));
+    for (let i = 0; i < bins.length; i++) {
+      //x0 = 0, y0 = 100
+      //xf = 168, yf = 80
 
-  // console.log("bins: ", bins);
+      const x = i * binWidth + 8;
+      const y = bins[i] + 10;
+
+      console.log("x: ", x, "y: ", y, "bins[i]: ", bins[i]);
+
+
+      path.lineTo(i*binWidth + 8, bins[i] + 10);
+
+      const x1 = i * binWidth + 4;
+      const y1 = bins[i] + 10;
+      const x2 = (i+1) * binWidth + 4;
+      const y2 = bins[i] + 10;
+
+      // path.quadTo(x1, y1, x2, y2);  
+      // path.rQuadTo(x2, y2, x1, y1);  
+      
+      // path.cubicTo(x1, y1, x2, y2, x1, y1);
+      // path.rCubicTo(x2, y2, x1, y1, x2, y2);
+
+    }
+
+    path.lineTo(bins.length * binWidth + 8, 0);
+    path.close();
+    return path;
+  };
 
   return (
     <View style={styles.container}>
@@ -298,8 +295,6 @@ export const RecordSound = () => {
       <Canvas style={styles.audioSpectrum}>
         <Group>
           {binsToBarHeights.map((bin, i) => {
-
-            console.log("bin: ", bin, 'i: ', i, 'binWidth: ', binWidth, 'height: ', bin);
             return (
               <>
                 <Rect
@@ -310,27 +305,28 @@ export const RecordSound = () => {
                   height={bin}
                   color="red"
                 />
-                <Rect
+
+                {/* <Rect
                   key={`${i}_2`}
                   x={i * binWidth + 4}
                   y={0}
                   width={2}
                   height={bin}
                   color="green"
-                />
+                /> */}
               </>
             );
           })}
         </Group>
       </Canvas>
 
-      <View style={styles.audioSpectrum} onLayout={onLayout}>
-        <AudioSpectrum
-          height={dim.height}
-          bins={bins}
-          frequencyRange={[FIRST_BIN_FREQ, MAX_BIN_FREQ]}
+      <Canvas style={{ flex: 1 }}>
+        <Path
+          path={binsToCurve(binsToBarHeights)}
+          color="magenta"
+          stroke={{ width: 1 }}
         />
-      </View>
+      </Canvas>
 
       <Button
         title={IsRecording ? "Stop Recording" : "Start Recording"}
