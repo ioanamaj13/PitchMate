@@ -2,7 +2,27 @@ import React, { useState, useRef, useEffect, useMemo } from "react";
 import { View, StyleSheet, Button, Text } from "react-native";
 import { Audio, AVPlaybackStatus } from "expo-av";
 import { Canvas, Circle, Group, Line, vec } from "@shopify/react-native-skia";
-import { color } from "react-native-reanimated";
+import {
+  cancelAnimation,
+  Extrapolate,
+  interpolate,
+  runOnUI,
+  useSharedValue,
+  withTiming,
+} from "react-native-reanimated";
+import AudioSpectrum from "../components/audioSpectrum.component";
+import { convWidthForNumBins, ithBinToFreq } from "../math/convolution";
+import { makeInvLogFn } from "../math/invLog";
+import { useMeasure } from "../utils/useMeasure";
+import { cfft } from "../math/fft";
+import {
+  NUM_BINS,
+  N_SAMPLES_TO_PROCESS,
+  LOG_COEFF,
+  FFT_SIZE,
+  BIN_WIDTH,
+  calculateBins,
+} from "../constants";
 
 export const RecordSound = () => {
   // Refs for the audio
@@ -15,14 +35,96 @@ export const RecordSound = () => {
   const [IsRecording, SetIsRecording] = useState<boolean>(false);
   const [soundStatus, setSoundStatus] = useState<AVPlaybackStatus>();
   const [isPlaying, setIsPlaying] = useState<boolean>(false);
+  const [recordingPositionMillis, setRecordingPositionMillis] =
+    useState<number>(0);
 
   const [recordings, setRecordings] = useState<string[]>([]);
   const [recordingDuration, setRecordingDuration] = useState<number>(0);
+
+  const onPlaybackStatusUpdate = (playbackStatus: AVPlaybackStatus) => {
+    if (!playbackStatus.isLoaded) {
+      // Update your UI for the unloaded state
+      if (playbackStatus.error) {
+        console.log(
+          `Encountered a fatal error during playback: ${playbackStatus.error}`
+        );
+        // Send Expo team the error on Slack or the forums so we can help you debug!
+      }
+    } else {
+      // Update your UI for the loaded state
+
+      if (playbackStatus.isPlaying) {
+        setRecordingPositionMillis(playbackStatus.positionMillis);
+        // Update your UI for the playing state
+      } else {
+        // Update your UI for the paused state
+      }
+
+      if (playbackStatus.isBuffering) {
+        // Update your UI for the buffering state
+      }
+
+      if (playbackStatus.didJustFinish && !playbackStatus.isLooping) {
+        // The player has just finished playing and will stop. Maybe you want to play something else?
+        StopPlaying();
+      }
+    }
+  };
+
+  AudioPlayer.current.setOnPlaybackStatusUpdate(onPlaybackStatusUpdate);
 
   // Initial Load to get the audio permission
   useEffect(() => {
     GetPermission();
   }, []);
+
+  const onSampleReceived = (sample: Audio.AudioSample) => {
+    // Considerations below do not respect log scale!
+    // sample rate = 44.1 kHz
+    // picking 2048 samples -> 1024 usable bins
+    // FFT bandwidth = sample_rate / 2 = 22.05 kHz
+    // Bin width = bandwidth / 1024 bins = ~21 Hz - and that is our resolution
+    // ----
+    // we divide it into 8 bins (bandwidth / (1024/8) --> 21 Hz * 8 = 168 Hz Bin width)
+    // mih freq = 168/2 = 84Hz
+    // ---
+    // but let's take 512 of these bins (bandwidth = 11 kHz)
+    // then single original bin width = 21Hz (still)
+    // we just ignore the higher part
+    const freqs = cfft(sample.channels[0].frames.slice(0, FFT_SIZE)).map((n) =>
+      n.mag()
+    );
+
+    // console.log("freqs: ", freqs);
+
+    if (freqs.some(isNaN)) return;
+    const binValues = calculateBins(freqs);
+
+    console.log("binValues: ", binValues);
+
+    // runOnUI(updateBinHeights)(binValues);
+    const a = 2;
+  };
+
+  const updateBinHeights = (values: number[]) => {
+    "worklet";
+    for (let i = 0; i < NUM_BINS; i++) {
+      bins[i].value = interpolate(
+        values[i],
+        [0, 90, 200, 900],
+        [1, 60, 90, 100],
+        Extrapolate.CLAMP
+      );
+    }
+  };
+
+  const fadeBinsDown = () => {
+    "worklet";
+    for (let i = 0; i < NUM_BINS; i++) {
+      cancelAnimation(bins[i]);
+      bins[i].value = withTiming(1, { duration: 500 });
+    }
+  };
 
   // Function to get the audio permission
   const GetPermission = async () => {
@@ -88,14 +190,22 @@ export const RecordSound = () => {
     if (IsRecording) StopRecording();
     try {
       // Load the Recorded URI
-      await AudioPlayer.current.loadAsync({ uri: RecordedURI }, {}, true);
+      await AudioPlayer.current.loadAsync(
+        { uri: RecordedURI },
+        { progressUpdateIntervalMillis: 150 },
+        true
+      );
 
       // Get Player Status
       const playerStatus = await AudioPlayer.current.getStatusAsync();
 
+      console.log("Status at play", playerStatus);
       // Play if song is loaded successfully
       if (playerStatus.isLoaded) {
+        if (playerStatus.durationMillis === 0) return;
+
         if (playerStatus.isPlaying === false) {
+          AudioPlayer.current.setOnAudioSampleReceived(onSampleReceived);
           AudioPlayer.current.playAsync();
           setIsPlaying(true);
         } else {
@@ -113,7 +223,7 @@ export const RecordSound = () => {
       //Get Player Status
       const playerStatus = await AudioPlayer.current.getStatusAsync();
 
-      console.log(playerStatus);
+      console.log("Status at stop", playerStatus);
       // If song is playing then stop it
       if (playerStatus.isLoaded === true) {
         await AudioPlayer.current.unloadAsync();
@@ -123,21 +233,30 @@ export const RecordSound = () => {
         console.log(playerStatus);
       }
       setIsPlaying(false);
+      // runOnUI(fadeBinsDown)();
     } catch (error) {}
   };
 
   const size = 100;
   const r = (50 * recordingDuration) / 1000;
 
-  const colorCoeficient = recordingDuration/255; 
-
-
-  console.log(colorCoeficient);
+  const colorCoeficient = recordingDuration / 255;
 
   const firstColor = "#ff00ff";
-  const progressColor = useMemo(() => `#${(parseInt(colorCoeficient.toString()))}0000`, [colorCoeficient]) ;
+  const progressColor = useMemo(
+    () => `#${parseInt(colorCoeficient.toString())}0000`,
+    [colorCoeficient]
+  );
 
-  console.log(progressColor);
+  const DISPLAY_BIN_WIDTH =
+    convWidthForNumBins(NUM_BINS, N_SAMPLES_TO_PROCESS) * BIN_WIDTH;
+  const invLog = makeInvLogFn(LOG_COEFF, N_SAMPLES_TO_PROCESS);
+  const FIRST_BIN_FREQ = ithBinToFreq(BIN_WIDTH)(invLog(20));
+  const MAX_BIN_FREQ = BIN_WIDTH * N_SAMPLES_TO_PROCESS;
+
+  const [dim, onLayout] = useMeasure();
+
+  const bins = [...new Array(NUM_BINS)].map(() => useSharedValue(1));
 
   return (
     <View style={styles.container}>
@@ -152,13 +271,30 @@ export const RecordSound = () => {
         </Group>
       </Canvas>
 
-      
       <Canvas style={styles.playbackCanvas}>
-        <Group blendMode='difference'>
-          <Circle cx={recordingDuration/100} cy={30} r={10}  color={progressColor} />
-          <Line p1={vec(0,30)} p2={vec(1000,30)} strokeWidth={4} color={progressColor} />
+        <Group blendMode="difference">
+          <Circle
+            cx={recordingPositionMillis / 100}
+            cy={30}
+            r={10}
+            color={progressColor}
+          />
+          <Line
+            p1={vec(0, 30)}
+            p2={vec(1000, 30)}
+            strokeWidth={4}
+            color={progressColor}
+          />
         </Group>
       </Canvas>
+
+      <View style={styles.audioSpectrum} onLayout={onLayout}>
+        <AudioSpectrum
+          height={dim.height}
+          bins={bins}
+          frequencyRange={[FIRST_BIN_FREQ, MAX_BIN_FREQ]}
+        />
+      </View>
 
       <Button
         title={IsRecording ? "Stop Recording" : "Start Recording"}
@@ -197,9 +333,15 @@ const styles = StyleSheet.create({
   },
 
   playbackCanvas: {
-
     display: "flex",
     height: 60,
+  },
+
+  audioSpectrum: {
+    display: "flex",
+    height: 100,
+    borderColor: "black",
+    borderWidth: 1,
   },
 });
 

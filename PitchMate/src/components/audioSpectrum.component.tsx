@@ -1,7 +1,6 @@
 import { StatusBar } from "expo-status-bar";
 import React from "react";
-import { Button, Dimensions, StyleSheet } from "react-native";
-import { Layout, Text } from "@ui-kitten/components";
+import { Button, Dimensions, StyleSheet, View, Text } from "react-native";
 import Reanimated, {
   Extrapolate,
   interpolate,
@@ -62,8 +61,8 @@ export default function AudioSpectrum({ bins, frequencyRange, height }: Props) {
   }
 
   return (
-    <>
-      <Layout level="1" style={[styles.binContainer, { height }]}>
+    <View>
+      <View style={[styles.binContainer, { height }]}>
         <Reanimated.View style={{ width: 0, height }} />
         {animatedStyles.map((style, idx) => (
           <Reanimated.View
@@ -71,13 +70,13 @@ export default function AudioSpectrum({ bins, frequencyRange, height }: Props) {
             style={[styles.bin, style, { width: binWidth }]}
           />
         ))}
-      </Layout>
-      <Layout level="3" style={styles.xAxisLabels}>
+      </View>
+      <View style={styles.xAxisLabels}>
         <Text>{formatHertzString(lowFreq, { digits: 0 })} Hz</Text>
         <Text>{formatHertzString(midFreq, { digits: 0 })} Hz</Text>
         <Text>{formatHertzString(highFreq / 1000, { digits: 1 })} kHz</Text>
-      </Layout>
-    </>
+      </View>
+    </View>
   );
 }
 
@@ -97,9 +96,12 @@ const styles = StyleSheet.create({
   },
   xAxisLabels: {
     height: AXIS_LABELS_HEIGHT,
-    width: Dimensions.get("window").width,
+    width: Dimensions.get("window").width - 80,
     flexDirection: "row",
     justifyContent: "space-between",
+    maxHeight: 100,
+    minHeight: 120,
+    flex: 1,
   },
 });
 
