@@ -1,20 +1,27 @@
-import { StatusBar } from 'expo-status-bar';
-import { StyleSheet, Text, View } from 'react-native';
+import { StatusBar } from "expo-status-bar";
+import React from "react";
+import { View, StyleSheet } from "react-native";
+import PitchMateMain from "./src/views/main.view";
 
-export default function App() {
+export const App = () => {
   return (
-    <View style={styles.container}>
-      <Text>PitchMate</Text>
+    <View style={styles.appContainer}>
       <StatusBar style="auto" />
+      <PitchMateMain />
     </View>
   );
-}
+};
 
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: '#fff',
-    alignItems: 'center',
-    justifyContent: 'center',
+export const styles = StyleSheet.create({
+  appContainer: {
+    padding: 10,
+    paddingTop: 50,
+    borderWidth: 6,
+    borderColor: "blue",
+    display: "flex",
+    alignContent: "center",
+    verticalAlign: "middle",
   },
 });
+
+export default App;
