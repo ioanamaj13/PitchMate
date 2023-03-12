@@ -1,6 +1,6 @@
-import { StatusBar } from "expo-status-bar";
+import { Canvas } from "@shopify/react-native-skia";
 import React from "react";
-import { Button, Dimensions, StyleSheet, View, Text } from "react-native";
+import { Dimensions, StyleSheet, View, Text } from "react-native";
 import Reanimated, {
   Extrapolate,
   interpolate,
@@ -29,7 +29,7 @@ interface Props {
 
 export default function AudioSpectrum({ bins, frequencyRange, height }: Props) {
   height -= AXIS_LABELS_HEIGHT;
-  const binWidth = Dimensions.get("window").width / bins.length;
+  const binWidth = (Dimensions.get("window").width - 120) / bins.length;
 
   const [lowFreq, highFreq] = frequencyRange;
   const midFreq = React.useMemo(
@@ -82,10 +82,10 @@ export default function AudioSpectrum({ bins, frequencyRange, height }: Props) {
 
 const styles = StyleSheet.create({
   binContainer: {
-    flexWrap: "wrap",
+    flexWrap: "nowrap",
     flexDirection: "row",
     justifyContent: "space-evenly",
-    alignItems: "stretch",
+    alignItems: 'center',
   },
   bin: {
     backgroundColor: "#ff9900",
@@ -99,7 +99,6 @@ const styles = StyleSheet.create({
     width: Dimensions.get("window").width - 80,
     flexDirection: "row",
     justifyContent: "space-between",
-    maxHeight: 100,
     minHeight: 120,
     flex: 1,
   },

@@ -1,7 +1,14 @@
 import React, { useState, useRef, useEffect, useMemo } from "react";
-import { View, StyleSheet, Button, Text } from "react-native";
+import { View, StyleSheet, Button, Text, Dimensions } from "react-native";
 import { Audio, AVPlaybackStatus } from "expo-av";
-import { Canvas, Circle, Group, Line, vec } from "@shopify/react-native-skia";
+import {
+  Canvas,
+  Circle,
+  Group,
+  Line,
+  Rect,
+  vec,
+} from "@shopify/react-native-skia";
 import {
   cancelAnimation,
   Extrapolate,
@@ -11,17 +18,14 @@ import {
   withTiming,
 } from "react-native-reanimated";
 import AudioSpectrum from "../components/audioSpectrum.component";
-import { convWidthForNumBins, ithBinToFreq } from "../math/convolution";
-import { makeInvLogFn } from "../math/invLog";
 import { useMeasure } from "../utils/useMeasure";
 import { cfft } from "../math/fft";
 import {
   NUM_BINS,
-  N_SAMPLES_TO_PROCESS,
-  LOG_COEFF,
   FFT_SIZE,
-  BIN_WIDTH,
   calculateBins,
+  FIRST_BIN_FREQ,
+  MAX_BIN_FREQ,
 } from "../constants";
 
 export const RecordSound = () => {
@@ -40,6 +44,10 @@ export const RecordSound = () => {
 
   const [recordings, setRecordings] = useState<string[]>([]);
   const [recordingDuration, setRecordingDuration] = useState<number>(0);
+
+  // States for the audio spectrum
+  const [binsToBarHeights, setBinsToBarHeights] = useState<number[]>([]);
+  const binWidth = (Dimensions.get("window").width - 80) / NUM_BINS;
 
   const onPlaybackStatusUpdate = (playbackStatus: AVPlaybackStatus) => {
     if (!playbackStatus.isLoaded) {
@@ -98,7 +106,10 @@ export const RecordSound = () => {
     // console.log("freqs: ", freqs);
 
     if (freqs.some(isNaN)) return;
+
     const binValues = calculateBins(freqs);
+
+    setBinsToBarHeights(binValues);
 
     console.log("binValues: ", binValues);
 
@@ -248,15 +259,11 @@ export const RecordSound = () => {
     [colorCoeficient]
   );
 
-  const DISPLAY_BIN_WIDTH =
-    convWidthForNumBins(NUM_BINS, N_SAMPLES_TO_PROCESS) * BIN_WIDTH;
-  const invLog = makeInvLogFn(LOG_COEFF, N_SAMPLES_TO_PROCESS);
-  const FIRST_BIN_FREQ = ithBinToFreq(BIN_WIDTH)(invLog(20));
-  const MAX_BIN_FREQ = BIN_WIDTH * N_SAMPLES_TO_PROCESS;
-
   const [dim, onLayout] = useMeasure();
 
   const bins = [...new Array(NUM_BINS)].map(() => useSharedValue(1));
+
+  // console.log("bins: ", bins);
 
   return (
     <View style={styles.container}>
@@ -285,6 +292,35 @@ export const RecordSound = () => {
             strokeWidth={4}
             color={progressColor}
           />
+        </Group>
+      </Canvas>
+
+      <Canvas style={styles.audioSpectrum}>
+        <Group>
+          {binsToBarHeights.map((bin, i) => {
+
+            console.log("bin: ", bin, 'i: ', i, 'binWidth: ', binWidth, 'height: ', bin);
+            return (
+              <>
+                <Rect
+                  key={i}
+                  x={i * binWidth + 12}
+                  y={0}
+                  width={binWidth - 16}
+                  height={bin}
+                  color="red"
+                />
+                <Rect
+                  key={`${i}_2`}
+                  x={i * binWidth + 4}
+                  y={0}
+                  width={2}
+                  height={bin}
+                  color="green"
+                />
+              </>
+            );
+          })}
         </Group>
       </Canvas>
 
