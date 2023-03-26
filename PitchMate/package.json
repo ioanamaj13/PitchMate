@@ -10,24 +10,13 @@
   },
   "dependencies": {
     "@shopify/react-native-skia": "0.1.172",
-    "@ui-kitten/components": "^5.1.2",
     "css-loader": "^6.7.3",
     "expo": "~48.0.6",
     "expo-av": "~13.2.1",
-    "expo-linear-gradient": "~12.1.2",
     "expo-splash-screen": "~0.18.1",
     "expo-status-bar": "~1.4.4",
-    "mini-css-extract-plugin": "^2.7.3",
     "react": "18.2.0",
-    "react-native": "0.71.4",
-    "react-native-linear-gradient": "^2.6.2",
-    "react-native-permissions": "^3.8.0",
-    "react-native-pitch-tracker": "^0.4.2",
-    "react-native-reanimated": "~2.14.4",
-    "sass": "^1.58.3",
-    "sass-loader": "^13.2.0",
-    "style-loader": "^3.3.1",
-    "yinjs": "^0.1.0"
+    "react-native": "0.71.4"
   },
   "devDependencies": {
     "@babel/core": "^7.20.0",
