@@ -1,120 +1,126 @@
-import { Canvas } from "@shopify/react-native-skia";
 import React from "react";
-import { Dimensions, StyleSheet, View, Text } from "react-native";
-import Reanimated, {
-  Extrapolate,
-  interpolate,
-  SharedValue,
-  useAnimatedStyle,
-  withSpring,
-} from "react-native-reanimated";
+import { View, StyleSheet,  Text, Dimensions } from "react-native";
+import {
+  Canvas,
+  Group,
+  Path,
+  Rect,
+  Skia,
+} from "@shopify/react-native-skia";
+import {
+  NUM_BINS,
+} from "../constants";
 
-const AXIS_LABELS_HEIGHT = 20;
-
-interface Props {
-  /**
-   * Bin height values, range [1, 100]
-   */
-  bins: SharedValue<number>[];
-  /**
-   * For bin labels - low and high frequency
-   * Middle will be calculated automatically (log10 middle)
-   */
-  frequencyRange: [low: number, high: number];
-  /**
-   * Height for bins container / max bin height.
-   */
-  height: number;
+interface AudioSpectrumProps {
+    barHeights: number[];
 }
 
-export default function AudioSpectrum({ bins, frequencyRange, height }: Props) {
-  height -= AXIS_LABELS_HEIGHT;
-  const binWidth = (Dimensions.get("window").width - 120) / bins.length;
+export const AudioSpectrum = ({barHeights}: AudioSpectrumProps) => {
 
-  const [lowFreq, highFreq] = frequencyRange;
-  const midFreq = React.useMemo(
-    () => Math.pow(10, Math.log10(lowFreq * highFreq) / 2),
-    [lowFreq, highFreq]
-  );
+  const binWidth = (Dimensions.get("window").width-60) / NUM_BINS;
 
-  const animatedStyles: any[] = new Array(bins.length);
+  const binsToPath = (bins: number[]) => {
+    const path = Skia.Path.Make();
+    path.moveTo(0, 0);
 
-  for (let i = 0; i < bins.length; i++) {
-    // eslint-disable-next-line react-hooks/rules-of-hooks
-    // as long as the hooks are always called in the same order, it's ok
-    animatedStyles[i] = useAnimatedStyle(() => {
-      const rawBin = bins[i].value;
-      const value = interpolate(
-        rawBin,
-        [1, 100],
-        [1, height],
-        Extrapolate.CLAMP
-      );
-      return {
-        height: withSpring(value, {
-          mass: 1,
-          damping: 500,
-          stiffness: 1000,
-        }),
-      };
-    }, [bins[i]]);
-  }
+    for (let i = 0; i < bins.length; i++) {
+      const x = i * binWidth + 8;
+      const y = bins[i] + 10;
+      path.lineTo(i * binWidth + 8, bins[i] + 10);
+    }
+
+    path.lineTo(bins.length * binWidth + 8, 0);
+    path.close();
+    return path;
+  };
 
   return (
-    <View>
-      <View style={[styles.binContainer, { height }]}>
-        <Reanimated.View style={{ width: 0, height }} />
-        {animatedStyles.map((style, idx) => (
-          <Reanimated.View
-            key={idx}
-            style={[styles.bin, style, { width: binWidth }]}
-          />
-        ))}
+    <View style={styles.container}>
+      <Canvas style={styles.audioSpectrum}>
+        <Group>
+          {barHeights.map((bin, i) => {
+            return (
+              <Rect
+                key={i}
+                x={i * binWidth + 12}
+                y={100}
+                width={binWidth - 16}
+                height={-bin}
+                color="red"
+              />
+            );
+          })}
+        </Group>
+      </Canvas>
+
+      <View style={styles.notesMapping}>
+        <Text>C</Text>
+        <Text>C#</Text>
+        <Text>D</Text>
+        <Text>D#</Text>
+        <Text>E</Text>
+        <Text>F</Text>
+        <Text>F#</Text>
+        <Text>G</Text>
+        <Text>G#</Text>
+        <Text>A</Text>
+        <Text>A#</Text>
+        <Text>B</Text>
       </View>
-      <View style={styles.xAxisLabels}>
-        <Text>{formatHertzString(lowFreq, { digits: 0 })} Hz</Text>
-        <Text>{formatHertzString(midFreq, { digits: 0 })} Hz</Text>
-        <Text>{formatHertzString(highFreq / 1000, { digits: 1 })} kHz</Text>
-      </View>
+
+      <Canvas style={{ flex: 1 }}>
+        <Path
+          path={binsToPath(barHeights)}
+          color="magenta"
+          stroke={{ width: 1 }}
+        />
+      </Canvas>
     </View>
   );
-}
+};
 
 const styles = StyleSheet.create({
-  binContainer: {
-    flexWrap: "nowrap",
-    flexDirection: "row",
-    justifyContent: "space-evenly",
-    alignItems: 'center',
+  container: {
+    flex: 0.9,
+    justifyContent: "center",
+    backgroundColor: "#ecf0f1",
+    padding: 8,
   },
-  bin: {
-    backgroundColor: "#ff9900",
-    alignSelf: "flex-end",
-    borderColor: "#ff7700",
-    borderRightWidth: 1,
-    borderLeftWidth: 1,
+
+  recordingCanvas: {
+    borderWidth: 1,
+    borderColor: "black",
+    display: "flex",
+    flex: 1,
+    height: 200,
   },
-  xAxisLabels: {
-    height: AXIS_LABELS_HEIGHT,
-    width: Dimensions.get("window").width - 80,
+
+  playbackCanvas: {
+    display: "flex",
+    height: 60,
+  },
+
+  audioSpectrum: {
+    display: "flex",
+    height: 100,
+    borderColor: "black",
+    borderWidth: 1,
+  },
+
+  timer: {
+    display: "flex",
     flexDirection: "row",
     justifyContent: "space-between",
-    minHeight: 120,
-    flex: 1,
+    color: "red",
+  },
+
+  notesMapping: {
+    marginLeft: 10,
+    marginRight: 10,
+    display: "flex",
+    flexDirection: "row",
+    justifyContent: "space-between",
   },
 });
 
-// `toLocaleString()` does not work in Hermes (https://github.com/facebook/react-native/issues/31152)
-// doing it manually
-const formatHertzString = (
-  frequency: number,
-  { digits }: { digits: number }
-) => {
-  const freqStr = frequency.toString();
-
-  const dotIndex = freqStr.indexOf(".");
-  if (dotIndex < 0) return freqStr;
-
-  const offset = digits + Number(!!digits);
-  return freqStr.substring(0, dotIndex + offset);
-};
+export default AudioSpectrum;

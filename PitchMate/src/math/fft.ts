@@ -40,17 +40,17 @@ export class Complex {
     return Math.sqrt(this.re * this.re + this.im * this.im);
   }
 
-  print() {
-    /*
-	although 'It's just a matter of separating out the real and imaginary parts of jw.' is not a helpful quote
-	the actual formula I found here and the rest was just fiddling / testing and comparing with correct results.
-	http://cboard.cprogramming.com/c-programming/89116-how-implement-complex-exponential-functions-c.html#post637921
-	*/
-    if (!this.re) console.log(this.im.toString() + "j");
-    else if (this.im < 0)
-      console.log(this.re.toString() + this.im.toString() + "j");
-    else console.log(this.re.toString() + "+" + this.im.toString() + "j");
-  }
+  // print() {
+  //   /*
+	// although 'It's just a matter of separating out the real and imaginary parts of jw.' is not a helpful quote
+	// the actual formula I found here and the rest was just fiddling / testing and comparing with correct results.
+	// http://cboard.cprogramming.com/c-programming/89116-how-implement-complex-exponential-functions-c.html#post637921
+	// */
+  //   if (!this.re) console.log(this.im.toString() + "j");
+  //   else if (this.im < 0)
+  //     console.log(this.re.toString() + this.im.toString() + "j");
+  //   else console.log(this.re.toString() + "+" + this.im.toString() + "j");
+  // }
 }
 
 export function icfft(amplitudes: number[] | Complex[]): number[] | Complex[] {
@@ -82,6 +82,8 @@ export function icfft(amplitudes: number[] | Complex[]): number[] | Complex[] {
 }
 
 export function cfft(amplitudes: number[]): Complex[] {
+
+  // console.log('amplitudes', amplitudes);
   const N = amplitudes.length;
   // @ts-ignore
   if (N <= 1) return amplitudes;

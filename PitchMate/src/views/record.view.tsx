@@ -1,18 +1,17 @@
 import React, { useState, useRef, useEffect, useMemo } from "react";
 import { View, StyleSheet, Button, Text, Dimensions } from "react-native";
 import { Audio, AVPlaybackStatus } from "expo-av";
+import { cfft } from "../math/fft";
 import {
-  Canvas,
-  Circle,
-  Group,
-  Line,
-  Path,
-  Rect,
-  Skia,
-  vec,
-} from "@shopify/react-native-skia";
-import { cfft, icfft } from "../math/fft";
-import { NUM_BINS, FFT_SIZE, calculateBins } from "../constants";
+  FFT_SIZE,
+  calculateBins,
+  SAMPLE_SIZE_MS,
+  SAMPLING_RATE,
+} from "../constants";
+import PlayerBar from "../components/playerBar.component";
+import { AudioSpectrum } from "../components/audioSpectrum.component";
+import RecordGraphic from "../components/recordingGraphic.component";
+import yin from "../math/yin";
 
 export const RecordSound = () => {
   // Refs for the audio
@@ -22,7 +21,7 @@ export const RecordSound = () => {
   // States for UI
   const [RecordedURI, SetRecordedURI] = useState<string>("");
   const [AudioPermission, SetAudioPermission] = useState<boolean>(false);
-  const [IsRecording, SetIsRecording] = useState<boolean>(false);
+  const [isRecording, setIsRecording] = useState<boolean>(false);
   const [soundStatus, setSoundStatus] = useState<AVPlaybackStatus>();
   const [isPlaying, setIsPlaying] = useState<boolean>(false);
   const [recordingPositionMillis, setRecordingPositionMillis] =
@@ -31,9 +30,10 @@ export const RecordSound = () => {
   const [recordings, setRecordings] = useState<string[]>([]);
   const [recordingDuration, setRecordingDuration] = useState<number>(0);
 
+  const [estimatedPitch, setEstimatedPitch] = useState<number>(0);
+
   // States for the audio spectrum
   const [binsToBarHeights, setBinsToBarHeights] = useState<number[]>([]);
-  const binWidth = (Dimensions.get("window").width - 80) / NUM_BINS;
 
   const onPlaybackStatusUpdate = (playbackStatus: AVPlaybackStatus) => {
     if (!playbackStatus.isLoaded) {
@@ -85,25 +85,25 @@ export const RecordSound = () => {
     // but let's take 512 of these bins (bandwidth = 11 kHz)
     // then single original bin width = 21Hz (still)
     // we just ignore the higher part
-    const freqs = cfft(sample.channels[0].frames.slice(0, FFT_SIZE)).map((n) =>
-      n.mag()
-    );
 
-    // console.log("freqs: ", freqs);
+    // console.log("sample: ", sample);
+    const frequencyArray = cfft(
+      sample.channels[0].frames.slice(0, FFT_SIZE)
+    ).map((n) => n.mag());
 
-    if (freqs.some(isNaN)) return;
+    const channel0 = sample.channels[0].frames.slice(0, FFT_SIZE);
 
-    const binValues = calculateBins(freqs);
+    const channel0yin = yin(channel0, SAMPLING_RATE);
+
+    setEstimatedPitch(parseInt(channel0yin));
+
+    if (frequencyArray.some(isNaN)) return;
+
+    const binValues = calculateBins(frequencyArray);
 
     setBinsToBarHeights(binValues);
 
-    console.log("binValues: ", binValues);
-
-    // runOnUI(updateBinHeights)(binValues);
-    const a = 2;
-
-    console.log("test cfft", cfft([1, 1, 1, 1, 0, 0, 0, 0]));
-    console.log("test icfft", icfft(cfft([1, 1, 1, 1, 0, 0, 0, 0])));
+    // console.log("binValues: ", binValues);
   };
 
   // Function to get the audio permission
@@ -116,6 +116,8 @@ export const RecordSound = () => {
   const StartRecording = async () => {
     if (isPlaying) StopPlaying();
 
+    setRecordingDuration(0);
+
     try {
       // Check if user has given the permission to record
       if (AudioPermission === true) {
@@ -127,7 +129,7 @@ export const RecordSound = () => {
 
           // Start recording
           await AudioRecorder.current.startAsync();
-          SetIsRecording(true);
+          setIsRecording(true);
 
           AudioRecorder.current.setProgressUpdateInterval(100);
           AudioRecorder.current.setOnRecordingStatusUpdate((status) => {
@@ -161,18 +163,19 @@ export const RecordSound = () => {
 
       // Reset the Audio Recorder
       AudioRecorder.current = new Audio.Recording();
-      SetIsRecording(false);
+      setIsRecording(false);
     } catch (error) {}
   };
 
   // Function to play the recorded audio
   const PlayRecordedAudio = async () => {
-    if (IsRecording) StopRecording();
+    if (isRecording) StopRecording();
+    setRecordingPositionMillis(0);
     try {
       // Load the Recorded URI
       await AudioPlayer.current.loadAsync(
         { uri: RecordedURI },
-        { progressUpdateIntervalMillis: 150 },
+        { progressUpdateIntervalMillis: SAMPLE_SIZE_MS },
         true
       );
 
@@ -191,7 +194,7 @@ export const RecordSound = () => {
         } else {
           setIsPlaying(false);
           setSoundStatus(playerStatus);
-          console.log(playerStatus.isPlaying);
+          console.log("isPlaying ", playerStatus.isPlaying);
         }
       }
     } catch (error) {}
@@ -213,53 +216,7 @@ export const RecordSound = () => {
         console.log(playerStatus);
       }
       setIsPlaying(false);
-      // runOnUI(fadeBinsDown)();
     } catch (error) {}
-  };
-
-  const size = 100;
-  const r = (50 * recordingDuration) / 1000;
-
-  const colorCoeficient = recordingDuration / 255;
-
-  const firstColor = "#ff00ff";
-  const progressColor = useMemo(
-    () => `#${parseInt(colorCoeficient.toString())}0000`,
-    [colorCoeficient]
-  );
-
-  const binsToCurve = (bins: number[]) => {
-    const path = Skia.Path.Make();
-    path.moveTo(0, 0);
-
-    for (let i = 0; i < bins.length; i++) {
-      //x0 = 0, y0 = 100
-      //xf = 168, yf = 80
-
-      const x = i * binWidth + 8;
-      const y = bins[i] + 10;
-
-      console.log("x: ", x, "y: ", y, "bins[i]: ", bins[i]);
-
-
-      path.lineTo(i*binWidth + 8, bins[i] + 10);
-
-      const x1 = i * binWidth + 4;
-      const y1 = bins[i] + 10;
-      const x2 = (i+1) * binWidth + 4;
-      const y2 = bins[i] + 10;
-
-      // path.quadTo(x1, y1, x2, y2);  
-      // path.rQuadTo(x2, y2, x1, y1);  
-      
-      // path.cubicTo(x1, y1, x2, y2, x1, y1);
-      // path.rCubicTo(x2, y2, x1, y1, x2, y2);
-
-    }
-
-    path.lineTo(bins.length * binWidth + 8, 0);
-    path.close();
-    return path;
   };
 
   return (
@@ -268,83 +225,31 @@ export const RecordSound = () => {
         <Text>{recordingDuration / 1000}</Text>
       </View>
 
-      <Canvas style={styles.recordingCanvas}>
-        <Group blendMode="multiply">
-          <Circle cx={100} cy={100} r={r} color={firstColor} />
-          <Circle cx={size - r} cy={r / 2} r={r / 2} color="magenta" />
-        </Group>
-      </Canvas>
+      {/* <PlayerBar
+        currentPosition={recordingPositionMillis}
+        duration={recordingDuration}
+      /> */}
 
-      <Canvas style={styles.playbackCanvas}>
-        <Group blendMode="difference">
-          <Circle
-            cx={recordingPositionMillis / 100}
-            cy={30}
-            r={10}
-            color={progressColor}
-          />
-          <Line
-            p1={vec(0, 30)}
-            p2={vec(1000, 30)}
-            strokeWidth={4}
-            color={progressColor}
-          />
-        </Group>
-      </Canvas>
-
-      <Canvas style={styles.audioSpectrum}>
-        <Group>
-          {binsToBarHeights.map((bin, i) => {
-            return (
-              <>
-                <Rect
-                  key={i}
-                  x={i * binWidth + 12}
-                  y={0}
-                  width={binWidth - 16}
-                  height={bin}
-                  color="red"
-                />
-
-                {/* <Rect
-                  key={`${i}_2`}
-                  x={i * binWidth + 4}
-                  y={0}
-                  width={2}
-                  height={bin}
-                  color="green"
-                /> */}
-              </>
-            );
-          })}
-        </Group>
-      </Canvas>
-
-      <Canvas style={{ flex: 1 }}>
-        <Path
-          path={binsToCurve(binsToBarHeights)}
-          color="magenta"
-          stroke={{ width: 1 }}
-        />
-      </Canvas>
+      <AudioSpectrum barHeights={binsToBarHeights} />
 
       <Button
-        title={IsRecording ? "Stop Recording" : "Start Recording"}
-        color={IsRecording ? "red" : "green"}
-        onPress={IsRecording ? StopRecording : StartRecording}
+        disabled={isPlaying}
+        title={isRecording ? "Stop Recording" : "Start Recording"}
+        color={isRecording ? "red" : "green"}
+        onPress={isRecording ? StopRecording : StartRecording}
       />
       <Button
+        disabled={recordings.length === 0 || isRecording}
         title={isPlaying ? "Stop Sound" : "Play Sound"}
         color={isPlaying ? "red" : "orange"}
         onPress={isPlaying ? StopPlaying : PlayRecordedAudio}
       />
       <Text>{RecordedURI}</Text>
-      <Text>{soundStatus?.isLoaded}</Text>
-      {/* <View>
-        {recordings.map((item) => {
-          return <Text>{item}</Text>;
-        })}
-      </View> */}
+      <Text>
+        {" "}
+        Aproximated Pitch:{" "}
+        {estimatedPitch > 0 && estimatedPitch < 5000 ? estimatedPitch : "N/A"}
+      </Text>
     </View>
   );
 };
@@ -353,27 +258,6 @@ const styles = StyleSheet.create({
   container: {
     flex: 0.9,
     justifyContent: "center",
-    backgroundColor: "#ecf0f1",
-    padding: 8,
-  },
-
-  recordingCanvas: {
-    borderWidth: 1,
-    borderColor: "black",
-    display: "flex",
-    flex: 1,
-  },
-
-  playbackCanvas: {
-    display: "flex",
-    height: 60,
-  },
-
-  audioSpectrum: {
-    display: "flex",
-    height: 100,
-    borderColor: "black",
-    borderWidth: 1,
   },
 });
 

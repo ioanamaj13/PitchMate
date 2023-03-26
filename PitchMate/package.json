@@ -19,12 +19,15 @@
     "expo-status-bar": "~1.4.4",
     "mini-css-extract-plugin": "^2.7.3",
     "react": "18.2.0",
-    "react-native": "0.71.3",
+    "react-native": "0.71.4",
     "react-native-linear-gradient": "^2.6.2",
+    "react-native-permissions": "^3.8.0",
+    "react-native-pitch-tracker": "^0.4.2",
     "react-native-reanimated": "~2.14.4",
     "sass": "^1.58.3",
     "sass-loader": "^13.2.0",
-    "style-loader": "^3.3.1"
+    "style-loader": "^3.3.1",
+    "yinjs": "^0.1.0"
   },
   "devDependencies": {
     "@babel/core": "^7.20.0",
