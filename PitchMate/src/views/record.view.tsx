@@ -1,5 +1,5 @@
-import React, { useState, useRef, useEffect, useMemo } from "react";
-import { View, StyleSheet, Button, Text, Dimensions } from "react-native";
+import { useState, useRef, useEffect } from "react";
+import { View, StyleSheet, Button, Text } from "react-native";
 import { Audio, AVPlaybackStatus } from "expo-av";
 import { cfft } from "../math/fft";
 import {
@@ -12,6 +12,7 @@ import PlayerBar from "../components/playerBar.component";
 import { AudioSpectrum } from "../components/audioSpectrum.component";
 import RecordGraphic from "../components/recordingGraphic.component";
 import yin from "../math/yin";
+import React from "react";
 
 export const RecordSound = () => {
   // Refs for the audio
@@ -102,8 +103,6 @@ export const RecordSound = () => {
     const binValues = calculateBins(frequencyArray);
 
     setBinsToBarHeights(binValues);
-
-    // console.log("binValues: ", binValues);
   };
 
   // Function to get the audio permission
@@ -133,9 +132,7 @@ export const RecordSound = () => {
 
           AudioRecorder.current.setProgressUpdateInterval(100);
           AudioRecorder.current.setOnRecordingStatusUpdate((status) => {
-            console.log(status);
             setRecordingDuration(status.durationMillis);
-            console.log(status.durationMillis);
           });
         } catch (error) {
           console.log(error);

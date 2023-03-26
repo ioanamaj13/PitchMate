@@ -21,7 +21,6 @@ export const styles = StyleSheet.create({
     borderWidth: 1,
     backgroundColor: "#ecf0f1",
   },
-
 });
 
 export default PitchMateMain;
