@@ -9,7 +9,7 @@ import {
 } from "@shopify/react-native-skia";
 import {
   NUM_BINS,
-} from "../constants";
+} from "../utils/constants";
 
 interface AudioSpectrumProps {
     barHeights: number[];
@@ -68,7 +68,7 @@ export const AudioSpectrum = ({barHeights}: AudioSpectrumProps) => {
         <Text>B</Text>
       </View>
 
-      <Canvas style={{ flex: 1 }}>
+      <Canvas style={{ flex: 1, height: 100 }}>
         <Path
           path={binsToPath(barHeights)}
           color="magenta"

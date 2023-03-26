@@ -77,10 +77,10 @@ export const yin = (data: number[], sampleRate: number) => {
   var threshold = DEFAULT_THRESHOLD;
   var results = cumulativeMeanNormalizedDifference(difference(data));
   var tau = absoluteThreshold(results, threshold);
-  console.log(
-    "yin value ",
-    (sampleRate / bestLocalEstimate(results, tau)).toFixed(2)
-  );
+  // console.log(
+  //   "yin value ",
+  //   (sampleRate / bestLocalEstimate(results, tau)).toFixed(2)
+  // );
   return (sampleRate / bestLocalEstimate(results, tau)).toFixed(2);
 };
 

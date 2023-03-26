@@ -7,12 +7,13 @@ import {
   calculateBins,
   SAMPLE_SIZE_MS,
   SAMPLING_RATE,
-} from "../constants";
+} from "../utils/constants";
 import PlayerBar from "../components/playerBar.component";
 import { AudioSpectrum } from "../components/audioSpectrum.component";
 import RecordGraphic from "../components/recordingGraphic.component";
 import yin from "../math/yin";
 import React from "react";
+import PitchDisplay from "../components/pitchDisplay.component";
 
 export const RecordSound = () => {
   // Refs for the audio
@@ -31,7 +32,7 @@ export const RecordSound = () => {
   const [recordings, setRecordings] = useState<string[]>([]);
   const [recordingDuration, setRecordingDuration] = useState<number>(0);
 
-  const [estimatedPitch, setEstimatedPitch] = useState<number>(0);
+  const [estimatedPitch, setEstimatedPitch] = useState<string>("0");
 
   // States for the audio spectrum
   const [binsToBarHeights, setBinsToBarHeights] = useState<number[]>([]);
@@ -96,7 +97,7 @@ export const RecordSound = () => {
 
     const channel0yin = yin(channel0, SAMPLING_RATE);
 
-    setEstimatedPitch(parseInt(channel0yin));
+    setEstimatedPitch(channel0yin);
 
     if (frequencyArray.some(isNaN)) return;
 
@@ -191,7 +192,6 @@ export const RecordSound = () => {
         } else {
           setIsPlaying(false);
           setSoundStatus(playerStatus);
-          console.log("isPlaying ", playerStatus.isPlaying);
         }
       }
     } catch (error) {}
@@ -209,7 +209,6 @@ export const RecordSound = () => {
         await AudioPlayer.current.unloadAsync();
       } else {
         setSoundStatus(playerStatus);
-
         console.log(playerStatus);
       }
       setIsPlaying(false);
@@ -229,24 +228,23 @@ export const RecordSound = () => {
 
       <AudioSpectrum barHeights={binsToBarHeights} />
 
-      <Button
-        disabled={isPlaying}
-        title={isRecording ? "Stop Recording" : "Start Recording"}
-        color={isRecording ? "red" : "green"}
-        onPress={isRecording ? StopRecording : StartRecording}
-      />
-      <Button
-        disabled={recordings.length === 0 || isRecording}
-        title={isPlaying ? "Stop Sound" : "Play Sound"}
-        color={isPlaying ? "red" : "orange"}
-        onPress={isPlaying ? StopPlaying : PlayRecordedAudio}
-      />
-      <Text>{RecordedURI}</Text>
-      <Text>
-        {" "}
-        Aproximated Pitch:{" "}
-        {estimatedPitch > 0 && estimatedPitch < 5000 ? estimatedPitch : "N/A"}
-      </Text>
+      <PitchDisplay pitch={estimatedPitch} />
+
+      <View style={styles.recordingControls}>
+        <Button
+          disabled={isPlaying}
+          title={isRecording ? "Stop Recording" : "Start Recording"}
+          color={isRecording ? "red" : "green"}
+          onPress={isRecording ? StopRecording : StartRecording}
+        />
+        <Button
+          disabled={recordings.length === 0 || isRecording}
+          title={isPlaying ? "Stop Sound" : "Play Sound"}
+          color={isPlaying ? "red" : "orange"}
+          onPress={isPlaying ? StopPlaying : PlayRecordedAudio}
+        />
+      </View>
+      {/* <Text>{RecordedURI}</Text> */}
     </View>
   );
 };
@@ -255,6 +253,25 @@ const styles = StyleSheet.create({
   container: {
     flex: 0.9,
     justifyContent: "center",
+  },
+
+  recordingControls: {
+    display: "flex",
+    flexDirection: "row",
+    justifyContent: "space-around",
+  },
+
+  pitchLabel: {
+    fontSize: 30,
+  },
+
+  pitchValue: {
+    fontSize: 100,
+  },
+
+  pitchContainer: {
+    alignItems: "center",
+    marginBottom: 20,
   },
 });
 

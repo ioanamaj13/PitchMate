@@ -3,8 +3,8 @@ import {
   getBinWidth,
   ithBinToFreq,
   makeOptimalQuadraticBinsForSamples,
-} from "./math/convolution";
-import { makeInvLogFn } from "./math/invLog";
+} from "../math/convolution";
+import { makeInvLogFn } from "../math/invLog";
 
 export const FFT_SIZE = 2048;
 export const SAMPLING_RATE = 44100;
